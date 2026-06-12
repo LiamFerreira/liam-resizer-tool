@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Image Resizer & Watermarker</title>
+<style>
+body {
+  font-family: Arial;
+  padding: 20px;
+}
+
+canvas {
+  border: 1px solid #ccc;
+  margin: 10px 0;
+  cursor: grab;
+}
+
+.controls {
+  margin: 10px 0;
+}
+
+button {
+  margin: 5px;
+  padding: 8px 12px;
+}
+
+select {
+  padding: 6px;
+}
+</style>
+</head>
+<body>
+
+<h2>Image Resizer & Watermark Tool</h2>
+
+<input type="file" id="upload" multiple accept="image/jpeg">
+
+<div class="controls">
+  <label>Size:</label>
+  <select id="size">
+    <option value="1080x1350">1080x1350</option>
+    <option value="1080x1920">1080x1920</option>
+    <option value="1920x1080">1920x1080</option>
+  </select>
+
+  <label>Watermark position:</label>
+  <select id="wmPos">
+    <option value="none">None</option>
+    <option value="top-left">Top Left</option>
+    <option value="top-right">Top Right</option>
+    <option value="bottom-left">Bottom Left</option>
+    <option value="bottom-right">Bottom Right</option>
+  </select>
+
+  <button onclick="downloadImage()">Download</button>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let images = [];
+let currentImageIndex = 0;
+let img = new Image();
+
+let offsetX = 0;
+let offsetY = 0;
+let dragging = false;
+let startX, startY;
+
+const watermark = new Image();
+watermark.src = "https://via.placeholder.com/150x50?text=Watermark";
+
+document.getElementById("upload").addEventListener("change", (e) => {
+  images = Array.from(e.target.files);
+  loadImage(0);
+});
+
+function loadImage(index) {
+  if (!images[index]) return;
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    img.src = e.target.result;
+  };
+
+  reader.readAsDataURL(images[index]);
+}
+
+img.onload = () => {
+  offsetX = 0;
+  offsetY = 0;
+  draw();
+};
+
+function getSize() {
+  const val = document.getElementById("size").value.split("x");
+  return { w: parseInt(val[0]), h: parseInt(val[1]) };
+}
+
+function draw() {
+  const { w, h } = getSize();
+  canvas.width = w;
+  canvas.height = h;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // cover fit
+  const scale = Math.max(w / img.width, h / img.height);
+  const imgW = img.width * scale;
+  const imgH = img.height * scale;
+
+  ctx.drawImage(
+    img,
+    offsetX,
+    offsetY,
+    imgW,
+    imgH
+  );
+
+  drawWatermark();
+}
+
+function drawWatermark() {
+  const pos = document.getElementById("wmPos").value;
+  if (pos === "none") return;
+
+  const padding = 20;
+  const wmW = 150;
+  const wmH = 50;
+
+  let x = 0, y = 0;
+
+  if (pos.includes("top")) y = padding;
+  else y = canvas.height - wmH - padding;
+
+  if (pos.includes("left")) x = padding;
+  else x = canvas.width - wmW - padding;
+
+  ctx.drawImage(watermark, x, y, wmW, wmH);
+}
+
+// Dragging logic
+canvas.addEventListener("mousedown", (e) => {
+  dragging = true;
+  startX = e.clientX;
+  startY = e.clientY;
+});
+
+canvas.addEventListener("mouseup", () => dragging = false);
+canvas.addEventListener("mouseleave", () => dragging = false);
+
+canvas.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
+
+  const dx = e.clientX - startX;
+  const dy = e.clientY - startY;
+
+  offsetX += dx;
+  offsetY += dy;
+
+  startX = e.clientX;
+  startY = e.clientY;
+
+  draw();
+});
+
+// redraw on change
+document.getElementById("size").addEventListener("change", draw);
+document.getElementById("wmPos").addEventListener("change", draw);
+
+function downloadImage() {
+  const link = document.createElement("a");
+  link.download = "edited-image.jpg";
+  link.href = canvas.toDataURL("image/jpeg", 0.95);
+  link.click();
+}
+</script>
+
+</body>
+</html>
